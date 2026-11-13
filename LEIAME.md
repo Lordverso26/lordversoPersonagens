@@ -179,7 +179,7 @@ Sobravam bolsinhos de fundo entre o cabelo, a linha do queixo e o pescoço. Agor
 **Roupas novas (aba Roupa, `pecas/roupa_*.png`):** Jaqueta cinza com coração, Rede com top de alças, Casaco xadrez vermelho, Suéter verde de folhas e Top marrom de amarrar.
 - Jaqueta cinza com coração: 3 seletores (cinza, azul da gola, rosa do coração).
 - Rede com top de alças: só linha preta, sem cor pra mudar.
-- Casaco xadrez vermelho: 3 seletores (vermelho, cinza do top e vermelho escuro, que é o sombreado do xadrez; ele muda separado do vermelho).
+- Casaco xadrez vermelho: 2 seletores (vermelho e cinza do top). O vermelho escuro do desenho (sombreado do xadrez) não tem seletor: o build junta ele ao vermelho (`FUNDIR_SOMBRA_ROUPA` no build.py), então o casaco fica sem sombra em qualquer cor.
 - Suéter verde de folhas: 2 seletores (verde e verde claro das folhas).
 - Top marrom de amarrar: 1 seletor.
 - Nomes que dei: troque em `PECAS` no build.py.
@@ -187,3 +187,4 @@ Sobravam bolsinhos de fundo entre o cabelo, a linha do queixo e o pescoço. Agor
 **Correções da revisão:**
 - Essas 5 roupas e o **Suéter caído com alças** foram desenhados centrados em x=540, mas o pescoço e as roupas antigas ficam em x=562. O build agora empurra essas 6 roupas 23 px pra direita (`DX_ROUPAS_NOVAS` / `DESLOCAMENTO_X`). Os PNGs em `pecas/` continuam originais.
 - O build usa `scipy`, que não estava na lista de instalação. Agora o comando é `pip install pillow numpy scipy opencv-python-headless`.
+- **Linha estranha no maxilar (Repicado volumoso, Lateral ondulado, Liso com mecha):** a linha não era do seu desenho, era a linha fina que o build desenha para fechar a borda da pintura do cabelo. Ela era calculada para o rosto oval, então no rosto pontudo ou quadrado ficava boiando dentro do cabelo, e no oval deixava o contorno do maxilar duplo/grosso. Agora, perto do rosto, o build volta ao seu traço original: até 70 px fora do contorno (`RISCO_DIST`) e até 16 px dentro dele (`RISCO_DENTRO`). Se sobrar algum traço, aumente esses números e rode `python3 build.py`.

@@ -226,6 +226,9 @@ MAX_CORES_ROUPA = 6
 # Cores de roupa que ficam FIXAS (sem seletor, mantêm a cor original do desenho).
 # chave da peça -> lista de cores exatas (hex) que não mudam.
 # Ex.: no moletom tubarão os dentes (branco) e a boca (vermelho claro) não mudam.
+# Sombras de roupa que ficam sem seletor: a cor da sombra vira a cor de base (sem sombreado).
+# chave da peça -> {cor da sombra: cor de base}. Ex.: no casaco xadrez o vermelho escuro vira o vermelho.
+FUNDIR_SOMBRA_ROUPA = {"casacoxadrez": {"#cb0000": "#ff0000"}}
 CORES_FIXAS_ROUPA = {
     "tubarao": ["#ffffff", "#ffa1a1"],
 }
@@ -734,6 +737,14 @@ def processar():
                 continue
             if cat in CATEGORIAS_MULTICOR:
                 linha, fills = separar_multi(img)
+                # sombras de roupa que NÃO viram seletor: a cor da sombra é fundida na cor de base
+                # (a roupa fica sem sombra, igual em qualquer cor). chave da peça -> {sombra: base}
+                for sombra, base in FUNDIR_SOMBRA_ROUPA.get(chave, {}).items():
+                    cs = tuple(int(sombra[k:k + 2], 16) for k in (1, 3, 5))
+                    cb = tuple(int(base[k:k + 2], 16) for k in (1, 3, 5))
+                    ms = next((m for c, m in fills if c == cs), None)
+                    if ms is not None:
+                        fills = [(c, np.maximum(m, ms) if c == cb else m) for c, m in fills if c != cs]
                 fills = fills[:MAX_CORES_ROUPA]
                 fixas = [np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)], np.float32)
                          for h in CORES_FIXAS_ROUPA.get(chave, [])]
@@ -831,7 +842,11 @@ def processar():
                     mid_h = camada_do_meio_auto(linha, pint["hair"], [cab])
                     mid_h = cv2.GaussianBlur(np.maximum(mid_h, bolsos_de_fundo(linha, pint["hair"], cab)), (0, 0), 0.8)
                     perto = cv2.distanceTransform((cab <= 0.3).astype(np.uint8), cv2.DIST_L2, 3) <= RISCO_DIST
-                    perto &= (cab <= 0.3)        # só FORA do rosto: por cima da face a linha do cabelo fica
+                    perto &= (cab <= 0.3)        # FORA do rosto: volta o traço original (até RISCO_DIST px)
+                    # e na faixa de RISCO_DENTRO px DENTRO do contorno do rosto: a linha extra encostava no
+                    # contorno e deixava o maxilar com traço duplo/grosso (o traço original do cabelo fica)
+                    dentro_borda = cv2.distanceTransform((cab > 0.3).astype(np.uint8), cv2.DIST_L2, 3) <= RISCO_DENTRO
+                    perto |= (cab > 0.3) & dentro_borda
                     perto[:RISCO_Y0, :] = False
                     perto[RISCO_Y1 + 1:, :] = False
                     n_risco = int(((linha - antes)[perto] > 0.1).sum())
@@ -901,7 +916,8 @@ def camada_do_meio(linha, pintura, ya, yb, cabecas):
 # Cabelos novos em que o cabelo não encosta direito no contorno do rosto (fresta fina por onde
 # aparece o fundo/orelha): a camada do meio é calculada sozinha, nas duas laterais.
 COLAR_AUTO = {"novo1", "novo2", "novo3", "novo4", "novo5"}
-RISCO_DIST = 10      # (px) a linha extra só é removida a até esta distância do contorno do rosto
+RISCO_DIST = 70      # (px) a linha extra só é removida a até esta distância do contorno do rosto (o rosto pontudo/quadrado deixa o contorno do rosto oval longe)
+RISCO_DENTRO = 16    # (px) idem, mas pra dentro do rosto, colada no contorno do maxilar
 RISCO_Y0, RISCO_Y1 = 560, 814   # e só do meio do rosto até o queixo (a linha vertical do pescoço, abaixo, fica)
 FRESTA_MIN_AREA = 280   # (px) pedaços de fresta menores que isso são descartados
 FRESTA_MAX = 7       # (px) até esta distância do cabelo e do rosto ao mesmo tempo = fresta; mais que isso é espaço de verdade
